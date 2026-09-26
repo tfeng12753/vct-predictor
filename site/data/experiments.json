@@ -1,0 +1,157 @@
+{
+ "experiments": [
+  {
+   "key": "series_correlation",
+   "title": "Maps within a series are correlated (international series)",
+   "hypothesis": "International series forecasts are overconfident because the simulator treats maps as independent.",
+   "rows": [
+    {
+     "setting": "\u03c3 = 0.4",
+     "validation": {
+      "delta": -0.00163,
+      "lo": -0.00643,
+      "hi": 0.00289,
+      "n": 76
+     },
+     "holdout": {
+      "delta": -0.0021,
+      "lo": -0.00644,
+      "hi": 0.00214,
+      "n": 86
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "\u03c3 = 0.7",
+     "validation": {
+      "delta": -0.00313,
+      "lo": -0.01521,
+      "hi": 0.00815,
+      "n": 76
+     },
+     "holdout": {
+      "delta": -0.00432,
+      "lo": -0.01521,
+      "hi": 0.00628,
+      "n": 86
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "\u03c3 = 1.0",
+     "validation": {
+      "delta": -0.00355,
+      "lo": -0.02277,
+      "hi": 0.01456,
+      "n": 76
+     },
+     "holdout": {
+      "delta": -0.00544,
+      "lo": -0.02304,
+      "hi": 0.01158,
+      "n": 86
+     },
+     "decision": "not adopted: validation interval includes zero"
+    }
+   ],
+   "unit": "series log loss"
+  },
+  {
+   "key": "temperature",
+   "title": "Recalibrate the final probabilities (temperature scaling)",
+   "hypothesis": "Series forecasts are slightly overconfident overall (holdout calibration slope 0.82).",
+   "rows": [
+    {
+     "setting": "walk-forward, refit monthly",
+     "validation": {
+      "delta": 0.00133,
+      "lo": -0.00287,
+      "hi": 0.00533,
+      "n": 408
+     },
+     "holdout": {
+      "delta": -0.00043,
+      "lo": -0.00174,
+      "hi": 0.00091,
+      "n": 798
+     },
+     "decision": "not adopted: validation interval includes zero"
+    }
+   ],
+   "unit": "series log loss"
+  },
+  {
+   "key": "tier2",
+   "title": "Rate newcomers from their Challengers results",
+   "hypothesis": "Promoted teams and rookies are mis-rated at first because tier-one data starts from scratch.",
+   "rows": [
+    {
+     "setting": "players \u03b2=0.3, teams \u03b2=0.0",
+     "validation": {
+      "delta": -0.00054,
+      "lo": -0.00374,
+      "hi": 0.0025,
+      "n": 408
+     },
+     "holdout": {
+      "delta": -5e-05,
+      "lo": -0.00242,
+      "hi": 0.0024,
+      "n": 798
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "players \u03b2=0.6, teams \u03b2=0.0",
+     "validation": {
+      "delta": 0.00028,
+      "lo": -0.00555,
+      "hi": 0.00589,
+      "n": 408
+     },
+     "holdout": {
+      "delta": 0.00026,
+      "lo": -0.0041,
+      "hi": 0.00473,
+      "n": 798
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "players \u03b2=0.0, teams \u03b2=0.5",
+     "validation": {
+      "delta": 0.00052,
+      "lo": -0.00068,
+      "hi": 0.00176,
+      "n": 408
+     },
+     "holdout": {
+      "delta": 0.00049,
+      "lo": -0.00098,
+      "hi": 0.00187,
+      "n": 798
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "players \u03b2=0.4, teams \u03b2=0.4",
+     "validation": {
+      "delta": -0.00038,
+      "lo": -0.00527,
+      "hi": 0.00447,
+      "n": 408
+     },
+     "holdout": {
+      "delta": 0.00086,
+      "lo": -0.0032,
+      "hi": 0.00484,
+      "n": 798
+     },
+     "decision": "not adopted: validation interval includes zero"
+    }
+   ],
+   "unit": "series log loss",
+   "t2_maps": 23233
+  }
+ ]
+}

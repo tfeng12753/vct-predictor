@@ -1,0 +1,102 @@
+# Daily: scrape new results from vlr.gg, rebuild forecasts, commit the site data, deploy to GitHub Pages.
+# On pushes to main: just redeploy the site.
+name: Update forecasts
+
+on:
+  schedule:
+    - cron: "17 9 * * *"     # 09:17 UTC daily (after the day's Asia/EMEA matches, before NA evening)
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/update.yml"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update-forecasts
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330          # a cold start (no cached database) re-crawls everything, ~2-3 hours
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -r requirements.txt
+
+      # The scraped database is not committed; it lives in the Actions cache between runs.
+      - name: Restore database
+        uses: actions/cache/restore@v4
+        with:
+          path: data/vct.db
+          key: vct-db-${{ github.run_id }}
+          restore-keys: vct-db-
+
+      - name: Cold start (no cached database)
+        run: |
+          if [ ! -f data/vct.db ]; then
+            echo "No cached database; crawling every VCT event since 2023 (slow, one time)"
+            .venv/bin/python -m pipeline.scrape
+          fi
+
+      - name: Scrape new results and rebuild forecasts
+        run: bash update.sh
+
+      - name: Save database
+        if: always() && hashFiles('data/vct.db') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: data/vct.db
+          key: vct-db-${{ github.run_id }}
+
+      - name: Test
+        run: .venv/bin/python -m pytest -q tests
+
+      - name: Commit updated forecasts
+        run: |
+          git config user.name "vct-forecast-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/data site/logos
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -q -m "Update forecasts $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-on-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: [update, deploy-on-push]
+    if: always() && (needs.update.result == 'success' || needs.deploy-on-push.result == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

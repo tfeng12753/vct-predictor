@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VCT Forecast Desk</title>
+  <meta name="description" content="Win probabilities, map-by-map forecasts and tournament odds for tier-one Valorant, built from vlr.gg match data.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2314212B'/><rect x='6' y='13' width='12' height='6' fill='%232a78d6'/><rect x='18' y='13' width='8' height='6' fill='%23eda100'/></svg>">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="masthead">
+    <div class="wrap masthead-inner">
+      <a class="brand" href="#/">VCT Forecast Desk</a>
+      <nav aria-label="Sections">
+        <a href="#/" data-nav="home">Forecasts</a>
+        <a href="#/champions" data-nav="champions">Champions 2026</a>
+        <a href="#/rankings" data-nav="rankings">Rankings</a>
+        <a href="#/players" data-nav="players">Players</a>
+        <a href="#/meta" data-nav="meta">Meta</a>
+        <a href="#/agents" data-nav="agents">Agents</a>
+        <a href="#/lab" data-nav="lab">Matchup lab</a>
+        <a href="#/model" data-nav="model">How it works</a>
+      </nav>
+      <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16V2z" fill="currentColor"/><circle cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+  </header>
+  <main id="main" class="wrap" tabindex="-1">
+    <p class="loading">Loading forecasts…</p>
+  </main>
+  <footer class="wrap footer">
+    <p>Match data from <a href="https://www.vlr.gg">vlr.gg</a>. Not affiliated with Riot Games or vlr.gg. Probabilities are model estimates, not guarantees.</p>
+    <p class="stamp" id="stamp"></p>
+  </footer>
+  <div class="tip" role="tooltip" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

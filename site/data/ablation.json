@@ -1,0 +1,277 @@
+{
+ "validation": [
+  "2024-01-01",
+  "2025-07-01"
+ ],
+ "holdout_start": "2025-07-01",
+ "baseline": [
+  "f_elo",
+  "f_round",
+  "f_pelo",
+  "f_form",
+  "f_fkd",
+  "f_pick"
+ ],
+ "baseline_val_ll": 0.676133702276589,
+ "singles": [
+  {
+   "key": "f_elo",
+   "label": "Map Elo",
+   "in_stack": true,
+   "delta": -0.00048048696184224124,
+   "lo": -0.0013955693751222212,
+   "hi": 0.0003897440601359867
+  },
+  {
+   "key": "f_round",
+   "label": "Round model",
+   "in_stack": true,
+   "delta": 0.00020334943477151983,
+   "lo": -0.0012648543770950526,
+   "hi": 0.0017337450206348455
+  },
+  {
+   "key": "f_round_econ",
+   "label": "Economy-adjusted round model",
+   "in_stack": false,
+   "delta": 0.000124995267008215,
+   "lo": -0.00018672589926630077,
+   "hi": 0.0004535079449888571
+  },
+  {
+   "key": "f_pelo",
+   "label": "Roster Elo",
+   "in_stack": true,
+   "delta": 0.0006248491208091393,
+   "lo": -0.002455314154128721,
+   "hi": 0.00355124670507412
+  },
+  {
+   "key": "f_form",
+   "label": "Player form (Rating 2.0)",
+   "in_stack": true,
+   "delta": -0.0006265588513668021,
+   "lo": -0.0013688973168878215,
+   "hi": 0.00012081254818133711
+  },
+  {
+   "key": "f_fkd",
+   "label": "Opening duels (FK\u2212FD)",
+   "in_stack": true,
+   "delta": -0.00010463506878280477,
+   "lo": -0.0015403117077525316,
+   "hi": 0.0013640688589094299
+  },
+  {
+   "key": "f_pick",
+   "label": "Map pick",
+   "in_stack": true,
+   "delta": 0.0005014402949493829,
+   "lo": -0.0009612607256378827,
+   "hi": 0.001980213584262615
+  },
+  {
+   "key": "f_region",
+   "label": "Region strength",
+   "in_stack": false,
+   "delta": 0.0006028929099808421,
+   "lo": -0.00048779380879505066,
+   "hi": 0.0017531335818976733
+  },
+  {
+   "key": "f_selo",
+   "label": "Series Elo",
+   "in_stack": false,
+   "delta": 0.00048066556960017954,
+   "lo": -0.0009107165047559422,
+   "hi": 0.0018489175318696584
+  },
+  {
+   "key": "f_pistol",
+   "label": "Pistol rounds",
+   "in_stack": false,
+   "delta": 0.0005336745763320695,
+   "lo": -0.00021065413470684809,
+   "hi": 0.0013312863269550252
+  },
+  {
+   "key": "f_mom",
+   "label": "Momentum vs expectation",
+   "in_stack": false,
+   "delta": 0.00022231018172288823,
+   "lo": -0.00014152327568123078,
+   "hi": 0.0005597353054138975
+  },
+  {
+   "key": "f_rest",
+   "label": "Rest days",
+   "in_stack": false,
+   "delta": 0.00031644980524729154,
+   "lo": -0.000315652936868577,
+   "hi": 0.0008889834487116816
+  },
+  {
+   "key": "f_load",
+   "label": "Recent workload",
+   "in_stack": false,
+   "delta": -0.00019930863674854434,
+   "lo": -0.0016668823989801067,
+   "hi": 0.0012870836082674946
+  },
+  {
+   "key": "f_chem",
+   "label": "Roster chemistry",
+   "in_stack": false,
+   "delta": 0.00035387393205603575,
+   "lo": -0.0003890854477240291,
+   "hi": 0.0011376444462539146
+  },
+  {
+   "key": "f_exp",
+   "label": "Tier-one experience",
+   "in_stack": false,
+   "delta": -0.0010053459543189558,
+   "lo": -0.0035007156328723953,
+   "hi": 0.0013948318663476293
+  },
+  {
+   "key": "f_mapcomf",
+   "label": "Map comfort (roster's maps on this map)",
+   "in_stack": false,
+   "delta": 3.0376947668652073e-05,
+   "lo": -0.0004851415466227338,
+   "hi": 0.0005642434945226282
+  },
+  {
+   "key": "f_depth",
+   "label": "Agent-pool depth",
+   "in_stack": false,
+   "delta": 4.0354961495229186e-05,
+   "lo": -0.001295230722459152,
+   "hi": 0.0013814982048778502
+  },
+  {
+   "key": "f_meta",
+   "label": "Meta alignment of comp",
+   "in_stack": false,
+   "delta": 0.00023358187579776099,
+   "lo": -0.0007150073543191785,
+   "hi": 0.0012009564505744356
+  },
+  {
+   "key": "f_mapform",
+   "label": "Map-specific player form",
+   "in_stack": false,
+   "delta": 0.0011288440921199904,
+   "lo": 3.427855845971641e-05,
+   "hi": 0.002238948755723257
+  },
+  {
+   "key": "f_home",
+   "label": "Home region at internationals",
+   "in_stack": false,
+   "delta": 0.00022086320248757547,
+   "lo": -0.00015058260358286862,
+   "hi": 0.0006004349780650969
+  },
+  {
+   "key": "f_elo_newpatch",
+   "label": "Favourite on a new patch",
+   "in_stack": false,
+   "delta": -0.0004541641472281263,
+   "lo": -0.001638892337574484,
+   "hi": 0.0007290297399121867
+  },
+  {
+   "key": "f_elo_newact",
+   "label": "Favourite in a new act",
+   "in_stack": false,
+   "delta": -0.0001436086312564758,
+   "lo": -0.0014445987608801799,
+   "hi": 0.001116166059309373
+  },
+  {
+   "key": "f_elo_intl",
+   "label": "Favourite at internationals",
+   "in_stack": false,
+   "delta": 0.00040965929008210617,
+   "lo": -0.0003030953784957217,
+   "hi": 0.0011564774606912045
+  },
+  {
+   "key": "f_elo_elim",
+   "label": "Favourite in elimination games",
+   "in_stack": false,
+   "delta": 0.001045783824092385,
+   "lo": -0.0009365780293594475,
+   "hi": 0.00310685789522251
+  }
+ ],
+ "chosen": [
+  "f_elo",
+  "f_round",
+  "f_pelo",
+  "f_form",
+  "f_fkd",
+  "f_pick"
+ ],
+ "chosen_val_ll": 0.676133702276589,
+ "learners": {
+  "logistic": 0.676133702276589,
+  "gbm": 0.6904985092495772
+ },
+ "learner": "logistic",
+ "holdout": {
+  "previous stack": {
+   "log_loss": 0.6741290093182721,
+   "accuracy": 0.5706548498276711,
+   "n": 2031
+  },
+  "selected stack": {
+   "log_loss": 0.6741290093182721,
+   "accuracy": 0.5706548498276711,
+   "n": 2031
+  },
+  "Map Elo alone": {
+   "log_loss": 0.6759568889083789,
+   "accuracy": 0.5716395864106352,
+   "n": 2031
+  },
+  "Roster Elo alone": {
+   "log_loss": 0.6773975832165084,
+   "accuracy": 0.5741014278680453,
+   "n": 2031
+  }
+ },
+ "holdout_delta": {
+  "mean": 0.0,
+  "lo": 0.0,
+  "hi": 0.0
+ },
+ "labels": {
+  "f_elo": "Map Elo",
+  "f_round": "Round model",
+  "f_round_econ": "Economy-adjusted round model",
+  "f_pelo": "Roster Elo",
+  "f_form": "Player form (Rating 2.0)",
+  "f_fkd": "Opening duels (FK\u2212FD)",
+  "f_pick": "Map pick",
+  "f_region": "Region strength",
+  "f_selo": "Series Elo",
+  "f_pistol": "Pistol rounds",
+  "f_mom": "Momentum vs expectation",
+  "f_rest": "Rest days",
+  "f_load": "Recent workload",
+  "f_chem": "Roster chemistry",
+  "f_exp": "Tier-one experience",
+  "f_mapcomf": "Map comfort (roster's maps on this map)",
+  "f_depth": "Agent-pool depth",
+  "f_meta": "Meta alignment of comp",
+  "f_mapform": "Map-specific player form",
+  "f_home": "Home region at internationals",
+  "f_elo_newpatch": "Favourite on a new patch",
+  "f_elo_newact": "Favourite in a new act",
+  "f_elo_intl": "Favourite at internationals",
+  "f_elo_elim": "Favourite in elimination games"
+ }
+}
