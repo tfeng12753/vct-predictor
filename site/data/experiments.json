@@ -152,6 +152,134 @@
    ],
    "unit": "series log loss",
    "t2_maps": 23233
+  },
+  {
+   "key": "uncertainty",
+   "title": "Let new teams and players find their level faster",
+   "hypothesis": "A flat K makes newly promoted teams, new rosters and rookies take months to reach their real level; a K that starts high and settles as maps accumulate (as in Glicko) should fix that.",
+   "rows": [
+    {
+     "setting": "K boost for new ratings: teams \u00d71.0",
+     "validation": {
+      "delta": 0.00252,
+      "lo": 2e-05,
+      "hi": 0.00517,
+      "n": 408
+     },
+     "holdout": {
+      "delta": -0.00126,
+      "lo": -0.0029,
+      "hi": 0.00029,
+      "n": 802
+     },
+     "decision": "rejected: made validation worse"
+    },
+    {
+     "setting": "K boost for new ratings: teams \u00d72.0",
+     "validation": {
+      "delta": 0.00411,
+      "lo": -0.00025,
+      "hi": 0.00869,
+      "n": 408
+     },
+     "holdout": {
+      "delta": -0.00227,
+      "lo": -0.00522,
+      "hi": 0.00051,
+      "n": 802
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "K boost for new ratings: players \u00d71.0",
+     "validation": {
+      "delta": 7e-05,
+      "lo": -0.00293,
+      "hi": 0.00311,
+      "n": 408
+     },
+     "holdout": {
+      "delta": -0.00098,
+      "lo": -0.00269,
+      "hi": 0.00067,
+      "n": 802
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "K boost for new ratings: teams \u00d71.0, players \u00d71.0",
+     "validation": {
+      "delta": 0.00184,
+      "lo": -0.00118,
+      "hi": 0.0048,
+      "n": 408
+     },
+     "holdout": {
+      "delta": -0.00189,
+      "lo": -0.00414,
+      "hi": 0.00018,
+      "n": 802
+     },
+     "decision": "not adopted: validation interval includes zero"
+    }
+   ],
+   "unit": "series log loss"
+  },
+  {
+   "key": "stack_recency",
+   "title": "Weight recent maps more when blending the signals",
+   "hypothesis": "Which signals matter drifts with patches and formats, so a stack fitted on all history lags behind; weighting recent maps more should track the drift.",
+   "rows": [
+    {
+     "setting": "half-life 180 days",
+     "validation": {
+      "delta": 0.00422,
+      "lo": -0.00013,
+      "hi": 0.00862,
+      "n": 408
+     },
+     "holdout": {
+      "delta": 0.00165,
+      "lo": -0.00312,
+      "hi": 0.00648,
+      "n": 802
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "half-life 365 days",
+     "validation": {
+      "delta": 0.0021,
+      "lo": -0.0001,
+      "hi": 0.00423,
+      "n": 408
+     },
+     "holdout": {
+      "delta": 0.00043,
+      "lo": -0.00182,
+      "hi": 0.00273,
+      "n": 802
+     },
+     "decision": "not adopted: validation interval includes zero"
+    },
+    {
+     "setting": "half-life 730 days",
+     "validation": {
+      "delta": 0.00121,
+      "lo": 1e-05,
+      "hi": 0.00233,
+      "n": 408
+     },
+     "holdout": {
+      "delta": 1e-05,
+      "lo": -0.00105,
+      "hi": 0.0011,
+      "n": 802
+     },
+     "decision": "rejected: made validation worse"
+    }
+   ],
+   "unit": "series log loss"
   }
  ]
 }
