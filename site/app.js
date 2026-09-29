@@ -1,6 +1,6 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import { vetoSim } from "./sim.js";
-import { DATA, T, cleanSeries, cssVar, cw, esc, fmtDate, fmtDay, fmtTime, get, heat, lineChart, localDayKey, logo, main, parseD, pct, pctN, teamLink, tip, tug } from "./lib.js";
+import { DATA, T, cleanSeries, confidence, cssVar, cw, esc, fairOdds, fmtDate, fmtDay, fmtTime, get, heat, joinList, lineChart, localDayKey, logo, main, parseD, pct, pctN, teamLink, tip, tug } from "./lib.js";
 import * as X from "./explore.js";
 
 // ------------------------------------------------------------------ data
@@ -19,6 +19,7 @@ async function boot() {
     return;
   }
   window.addEventListener("hashchange", () => route());
+  setupSearch();
   route();
   setInterval(checkForUpdates, 3 * 60 * 1000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkForUpdates(); });
@@ -71,7 +72,7 @@ function toast(msg) {
 }
 
 // ------------------------------------------------------------------ theme
-const themeBtn = document.querySelector(".theme-toggle");
+const themeBtn = document.querySelector(".theme-toggle:not(.search-btn)");
 try { const saved = localStorage.getItem("theme"); if (saved) document.documentElement.dataset.theme = saved; } catch {}
 themeBtn.addEventListener("click", () => {
   const dark = document.documentElement.dataset.theme
@@ -120,9 +121,15 @@ function duel(u, opts = {}) {
     ${tug(u.p1, "grow")}
     <div class="duel-pcts">
       <span class="duel-pct ${favA ? "fav" : "dog"}">${pctN(u.p1)}<small>%</small></span>
+      ${verdict(u)}
       <span class="duel-pct ${favA ? "dog" : "fav"}">${pctN(1 - u.p1)}<small>%</small></span>
     </div>
     ${opts.caption ? `<p class="note">${opts.caption}</p>` : ""}`;
+}
+
+function verdict(u) {
+  const c = confidence(u.p1), fav = T(u.p1 >= 0.5 ? u.t1 : u.t2);
+  return `<span class="verdict ${c.cls}">${c.cls === "c0" ? "Toss-up" : `${esc(fav.tag || fav.name)}: ${c.label.toLowerCase()}`}</span>`;
 }
 
 function home() {
@@ -157,6 +164,8 @@ function home() {
     <p class="note">From ${DATA.tournament.sims.toLocaleString()} simulations of the rest of the event. <a href="#/champions">Full bracket odds</a></p>
     <div class="chart" id="title-chart"></div>` : ""}
 
+    ${trackRecord()}
+
     <div class="kv">
       <div><span class="num">${m.counts.series.toLocaleString()}</span><span>series since 2023</span></div>
       <div><span class="num">${m.counts.maps.toLocaleString()}</span><span>maps</span></div>
@@ -164,6 +173,49 @@ function home() {
       <div><span class="num">${pct(DATA.backtest.series["Ensemble + veto sim (pre-veto)"]?.accuracy, 1)}</span><span>series picked correctly out of sample</span></div>
     </div>`;
   if (tour.length) titleChart(document.getElementById("title-chart"), tour);
+  bindRecordDots();
+}
+
+// How recent forecasts have done: favourites' hit rate next to the confidence we gave them.
+function trackRecord() {
+  const rec = (DATA.backtest.recent || []).filter((r) => r.p1 != null);
+  if (rec.length < 10) return "";
+  const cutoff = parseD(DATA.meta.data_through).getTime() - 30 * 864e5;
+  let rows = rec.filter((r) => parseD(r.date).getTime() >= cutoff);
+  let span = "the last 30 days";
+  if (rows.length < 15) { rows = rec.slice(0, 40); span = `the last ${rows.length} series`; }
+  const fav = rows.map((r) => Math.max(r.p1, 1 - r.p1));
+  const hits = rows.filter((r) => (r.p1 >= 0.5) === (r.win1 === 1)).length;
+  const avg = fav.reduce((s, v) => s + v, 0) / fav.length;
+  const brier = rows.reduce((s, r) => s + (r.p1 - r.win1) ** 2, 0) / rows.length;
+  return `<h2>How the forecasts have done</h2>
+    <p class="note">Every tier-one series in ${span}, each forecast before it was played. If the probabilities are honest, favourites should win about as often as we said they would. <a href="#/model">Full backtest</a></p>
+    <div class="kv">
+      <div><span class="num">${hits} of ${rows.length}</span><span>favourites won (${pct(hits / rows.length)})</span></div>
+      <div><span class="num">${pct(avg)}</span><span>average forecast for the favourite</span></div>
+      <div><span class="num">${brier.toFixed(3)}</span><span>Brier score (coin flip 0.250, lower is better)</span></div>
+    </div>
+    <div class="record" role="list" aria-label="Recent forecasts, oldest first">${rows.slice().reverse().map((r, i) => {
+      const ok = (r.p1 >= 0.5) === (r.win1 === 1), f = Math.max(r.p1, 1 - r.p1);
+      return `<span role="listitem" class="rec ${ok ? "hit" : "miss"}" style="height:${Math.round(10 + (f - 0.5) * 60)}px" data-i="${rows.length - 1 - i}"
+        aria-label="${esc(r.t1)} vs ${esc(r.t2)}: ${ok ? "called" : "upset"}"></span>`;
+    }).join("")}</div>
+    <div class="legend"><span><i class="sq" style="background:var(--good)"></i>Favourite won</span><span><i class="sq" style="background:var(--bad)"></i>Upset</span><span>Taller bars were more confident forecasts. Hover for details.</span></div>`;
+}
+
+function bindRecordDots() {
+  const rec = (DATA.backtest.recent || []).filter((r) => r.p1 != null);
+  const cutoff = parseD(DATA.meta.data_through).getTime() - 30 * 864e5;
+  let rows = rec.filter((r) => parseD(r.date).getTime() >= cutoff);
+  if (rows.length < 15) rows = rec.slice(0, 40);
+  document.querySelectorAll(".record .rec").forEach((el) => {
+    const r = rows[+el.dataset.i];
+    el.addEventListener("mousemove", (ev) => {
+      const fav = r.p1 >= 0.5 ? r.t1 : r.t2, ok = (r.p1 >= 0.5) === (r.win1 === 1);
+      tip(`<b>${esc(r.t1)} vs ${esc(r.t2)}</b><br>${fmtDate(r.date)}, ${esc(r.event)}<br>We had ${esc(fav)} at ${pct(Math.max(r.p1, 1 - r.p1))}<br>Result ${r.score}: ${ok ? "called" : "upset"}`, ev);
+    });
+    el.addEventListener("mouseleave", () => tip(null));
+  });
 }
 
 function fixtureRow(u) {
@@ -173,7 +225,7 @@ function fixtureRow(u) {
     <span class="side">${logo(a, "sm")}<span>${esc(a.name)}</span></span>
     <span><span class="odds"><span class="num ${u.p1 >= .5 ? "fav" : "dog"}">${pctN(u.p1)}</span>${tug(u.p1, "thin")}<span class="num ${u.p1 < .5 ? "fav" : "dog"}">${pctN(1 - u.p1)}</span></span></span>
     <span class="side r"><span>${esc(b.name)}</span>${logo(b, "sm")}</span>
-    <span class="stage">${esc(cleanSeries(u.series).split(": ").pop())}, Bo${u.best_of}</span>
+    <span class="stage">${esc(cleanSeries(u.series).split(": ").pop())}, Bo${u.best_of}<br><span class="conf ${confidence(u.p1).cls}">${confidence(u.p1).label}</span></span>
   </a>`;
 }
 
@@ -209,7 +261,8 @@ function match(id) {
         <span>Best of ${u.best_of}</span><span>${fmtDay(u.date)}, ${fmtTime(u.date)}</span>
         <span><a href="https://www.vlr.gg/${u.match_id}">Match page on vlr.gg</a></span></div>
       ${duel(u)}
-      <p class="note">Series Elo alone would say ${pct(u.p1_elo)} for ${esc(a.name)}. The full model also weighs map pools, attack and defence by map, current rosters, and how each team tends to veto.</p>
+      ${storyline(u)}
+      <p class="note">Series Elo alone would say ${pct(u.p1_elo)} for ${esc(a.name)}. The full model also weighs map pools, attack and defence by map, current rosters, and how each team tends to veto. <a href="#/lab/${u.t1}-${u.t2}-${u.best_of}">Open this matchup in the lab</a></p>
     </section>
     ${u.components ? `<h2>Do the models agree?</h2>
     <p class="note">Each hollow dot is one component model on its own; the bar is the full forecast. Widely spread dots mean the models disagree and the forecast is less certain.</p>
@@ -257,9 +310,77 @@ function matchBody(u) {
       </div>
     </div>
     <h2>Map pools side by side</h2>
-    <p class="note">Each team's expected win rate on each map against the average active tier-one team.</p>
+    <p class="note">Each team's expected win rate on each map against the average active tier-one team. The axis zooms to the data, so small gaps can look large; the Maps list above gives the head-to-head chance.</p>
     <div class="chart" id="pool-chart"></div>
-    <div class="legend"><span><i class="dot" style="background:var(--team-a)"></i>${esc(a.name)} (circle)</span><span><i class="sq" style="background:var(--team-b)"></i>${esc(b.name)} (square)</span></div>`;
+    <div class="legend"><span><i class="dot" style="background:var(--team-a)"></i>${esc(a.name)} (circle)</span><span><i class="sq" style="background:var(--team-b)"></i>${esc(b.name)} (square)</span></div>
+    ${vetoPanel(u)}`;
+}
+
+// Who is likely to put each map into the series: a stacked bar per map from the simulated vetoes.
+function vetoPanel(u) {
+  if (!u.maps?.length || u.maps[0].t1_pick_rate == null) return "";
+  const a = T(u.t1), b = T(u.t2);
+  const rows = u.maps.map((m) => ({ ...m, dec: Math.max(0, m.play_rate - m.t1_pick_rate - m.t2_pick_rate) }));
+  const top = (k) => rows.slice().sort((x, y) => y[k] - x[k])[0];
+  const pa = top("t1_pick_rate"), pb = top("t2_pick_rate"), pd = top("dec");
+  const seg = (w, cls, label) => (w > 0.005 ? `<span class="${cls}" style="flex-basis:${w * 100}%" title="${label}: ${pct(w)}"></span>` : "");
+  return `<h2>How the veto is likely to go</h2>
+    <p class="note">From the simulated vetoes: who puts each map into the series, and how often it's left as the decider or never played. Each team's pick is its own choice, so it's usually a map it's strong on.</p>
+    <div class="kv">
+      <div><span class="num">${esc(pa.map)}</span><span>${esc(a.name)}'s likeliest pick (${pct(pa.t1_pick_rate)})</span></div>
+      <div><span class="num">${esc(pb.map)}</span><span>${esc(b.name)}'s likeliest pick (${pct(pb.t2_pick_rate)})</span></div>
+      ${u.best_of > 1 ? `<div><span class="num">${esc(pd.map)}</span><span>likeliest decider (${pct(pd.dec)})</span></div>` : ""}
+    </div>
+    <div class="vetobars">${rows.map((m) => `<div class="vb-row">
+      <span class="vb-map">${esc(m.map)}</span>
+      <span class="vb-bar" role="img" aria-label="${esc(m.map)}: ${esc(a.name)} picks ${pct(m.t1_pick_rate)}, ${esc(b.name)} picks ${pct(m.t2_pick_rate)}, decider ${pct(m.dec)}, not played ${pct(1 - m.play_rate)}">
+        ${seg(m.t1_pick_rate, "va", `${a.name} picks`)}${seg(m.t2_pick_rate, "vbb", `${b.name} picks`)}${seg(m.dec, "vd", "Decider")}${seg(1 - m.play_rate, "vn", "Not played")}</span>
+      <span class="vb-p num">${pct(m.play_rate)}</span></div>`).join("")}</div>
+    <div class="legend"><span><i class="sq" style="background:var(--team-a)"></i>${esc(a.name)} picks</span><span><i class="sq" style="background:var(--team-b)"></i>${esc(b.name)} picks</span><span><i class="sq" style="background:var(--ink-3)"></i>Decider</span><span><i class="sq" style="background:var(--rule-soft)"></i>Not played</span><span>Number: how often it's played at all</span></div>`;
+}
+
+// A few plain sentences that say what the numbers mean.
+function storyline(u) {
+  const a = T(u.t1), b = T(u.t2);
+  const favA = u.p1 >= 0.5, fav = favA ? a : b, dog = favA ? b : a, pf = Math.max(u.p1, 1 - u.p1);
+  const c = confidence(u.p1);
+  const pts = [];
+  const lead = { c0: `<b>Too close to call.</b> ${esc(fav.name)} ${pf >= 0.505 ? `edge it at ${pct(pf)}` : "and " + esc(dog.name) + " are level"}, which is barely better than a coin flip.`,
+    c1: `<b>${esc(fav.name)} have a slight edge</b> at ${pct(pf)}. Expect ${esc(dog.name)} to win this about ${Math.round((1 - pf) * 10)} times in 10.`,
+    c2: `<b>${esc(fav.name)} are favoured</b> at ${pct(pf)}, but an upset by ${esc(dog.name)} happens about ${Math.round((1 - pf) * 10)} times in 10.`,
+    c3: `<b>${esc(fav.name)} are strong favourites</b> at ${pct(pf)}. ${esc(dog.name)} would need an upset that happens about 1 time in ${Math.max(2, Math.round(1 / (1 - pf)))}.` };
+  pts.push(`${lead[c.cls]} Fair odds: ${esc(a.tag || a.name)} ${fairOdds(u.p1)}, ${esc(b.tag || b.name)} ${fairOdds(1 - u.p1)}.`);
+  const top = Object.entries(u.scores || {}).sort((x, y) => y[1] - x[1])[0];
+  if (top) {
+    const [k, v] = top, [s1, s2] = k.split("-").map(Number);
+    pts.push(`Most likely result: ${esc((s1 > s2 ? a : b).name)} ${Math.max(s1, s2)}–${Math.min(s1, s2)} (${pct(v)}).`);
+  }
+  const likely = (u.maps || []).filter((m) => m.play_rate >= 0.3);
+  const edge = (m, forA) => `${esc(m.map)} (${pct(forA ? m.p_neutral : 1 - m.p_neutral)})`;
+  const aM = likely.filter((m) => m.p_neutral >= 0.55).sort((x, y) => y.p_neutral - x.p_neutral).slice(0, 2);
+  const bM = likely.filter((m) => m.p_neutral <= 0.45).sort((x, y) => x.p_neutral - y.p_neutral).slice(0, 2);
+  if (!aM.length && !bM.length) pts.push("No big map edges: every map that's likely to be played is between 45% and 55%, so the veto matters less than usual.");
+  else pts.push(`Map edges: ${joinList([aM.length ? `${esc(a.name)} on ${joinList(aM.map((m) => edge(m, true)))}` : "", bM.length ? `${esc(b.name)} on ${joinList(bM.map((m) => edge(m, false)))}` : ""].filter(Boolean))}.`);
+  if (u.factors?.length) {
+    const f = u.factors.slice().sort((x, y) => Math.abs(y.logit) - Math.abs(x.logit));
+    const who = (d) => esc((d.logit > 0 ? a : b).name);
+    if (Math.abs(f[0].logit) > 0.02) {
+      let s = `The biggest driver is <i>${esc(f[0].label)}</i>, which favours ${who(f[0])}.`;
+      const against = f.find((d) => Math.abs(d.logit) > 0.03 && (d.logit > 0) !== (f[0].logit > 0));
+      if (against) s += ` Pulling the other way: <i>${esc(against.label)}</i> favours ${who(against)}.`;
+      pts.push(s);
+    }
+  }
+  if (u.components?.length) {
+    const ps = u.components.map((d) => d.p1), lo = Math.min(...ps), hi = Math.max(...ps);
+    if (hi - lo > 0.2) pts.push(`The component models disagree (from ${pct(lo)} to ${pct(hi)} for ${esc(a.name)}), so treat this forecast with extra caution.`);
+    else if (hi - lo < 0.1) pts.push(`All component models agree within ${Math.round((hi - lo) * 100)} points, which makes this a steadier forecast.`);
+  }
+  if (u.h2h?.length) {
+    const w = u.h2h.filter((h) => h.won).length;
+    pts.push(`In their last ${u.h2h.length === 1 ? "meeting" : `${u.h2h.length} meetings`}, ${esc(a.name)} won ${w} and ${esc(b.name)} won ${u.h2h.length - w}. Old results already count through the ratings, so this isn't extra evidence.`);
+  }
+  return `<ul class="story">${pts.map((p) => `<li>${p}</li>`).join("")}</ul>`;
 }
 
 function drawMatchCharts(u) {
@@ -308,12 +429,14 @@ function poolChart(el, teams) {
   const maps = DATA.meta.pool;
   const W = cw(el, 760), rowH = 34, left = 100, H = maps.length * rowH + 26;
   const vals = teams.flatMap((t) => t.maps.map((m) => m.strength)).filter((v) => v != null);
-  const lo = Math.min(0.25, d3.min(vals) - 0.03), hi = Math.max(0.75, d3.max(vals) + 0.03);
-  const x = d3.scaleLinear().domain([lo, hi]).range([left, W - 20]);
+  // fit the domain to the data (top teams all sit well above 50%), but never narrower than 20 points
+  let lo = d3.min(vals) - 0.03, hi = d3.max(vals) + 0.03;
+  if (hi - lo < 0.2) { const mid = (hi + lo) / 2; lo = mid - 0.1; hi = mid + 0.1; }
+  const x = d3.scaleLinear().domain([Math.max(0, lo), Math.min(1, hi)]).range([left, W - 20]);
   const svg = d3.select(el).append("svg").attr("viewBox", `0 0 ${W} ${H}`).attr("role", "img").attr("aria-label", "Map strength comparison");
   svg.append("g").attr("class", "grid").selectAll("line").data(x.ticks(6)).join("line")
     .attr("x1", x).attr("x2", x).attr("y1", 0).attr("y2", H - 22);
-  svg.append("line").attr("x1", x(.5)).attr("x2", x(.5)).attr("y1", 0).attr("y2", H - 22).attr("stroke", "var(--ink-3)");
+  if (lo < 0.5 && hi > 0.5) svg.append("line").attr("x1", x(.5)).attr("x2", x(.5)).attr("y1", 0).attr("y2", H - 22).attr("stroke", "var(--ink-3)");
   svg.append("g").selectAll("text").data(x.ticks(6)).join("text").attr("x", x).attr("y", H - 6).attr("text-anchor", "middle").text((d) => pct(d));
   const g = svg.selectAll("g.row").data(maps).join("g").attr("class", "row").attr("transform", (d, i) => `translate(0,${i * rowH})`);
   g.append("text").attr("x", left - 12).attr("y", rowH / 2 + 4).attr("text-anchor", "end").attr("class", "lbl").text((d) => d);
@@ -559,30 +682,50 @@ function sidesChart(el, t) {
 
 // ------------------------------------------------------------------ views: matchup lab
 let labState = { a: null, b: null, bo: 3 };
-function lab() {
-  const teams = DATA.teams.slice().sort((a, b) => a.name.localeCompare(b.name));
+// #/lab/<team one>-<team two>-<best of> so a matchup can be shared or bookmarked
+function lab(arg) {
+  const [pa, pb, pbo] = (arg || "").split("-").map(Number);
+  if (DATA.team.has(pa) && DATA.team.has(pb)) Object.assign(labState, { a: pa, b: pb });
+  if ([1, 3, 5].includes(pbo)) labState.bo = pbo;
   if (!labState.a) { const s = DATA.teams.slice().sort((x, y) => x.rank - y.rank); labState.a = s[0].id; labState.b = s[1].id; }
-  const opt = (sel) => teams.map((t) => `<option value="${t.id}" ${t.id === sel ? "selected" : ""}>${esc(t.name)}</option>`).join("");
+  const byRegion = d3.groups(DATA.teams.slice().sort((x, y) => x.rank - y.rank), (t) => t.region)
+    .sort((x, y) => REGION_ORDER.indexOf(x[0]) - REGION_ORDER.indexOf(y[0]));
+  const opt = (sel) => byRegion.map(([r, ts]) => `<optgroup label="${esc(r)}">${ts.map((t) =>
+    `<option value="${t.id}" ${t.id === sel ? "selected" : ""}>${esc(t.name)} (#${t.rank})</option>`).join("")}</optgroup>`).join("");
   main().innerHTML = `
     <section class="page-head">
       <h1>Matchup lab</h1>
-      <p class="lede">Pick any two active tier-one teams and a format. The page simulates 4,000 map vetoes using each team's real ban and pick habits, then plays out the maps.</p>
+      <p class="lede">Pick any two active tier-one teams and a format. The page simulates 4,000 map vetoes using each team's real ban and pick habits, then plays out the maps. Teams are listed by region and power ranking.</p>
       <div class="controls">
         <label class="field">Team one<select id="lab-a">${opt(labState.a)}</select></label>
+        <button type="button" class="btn" id="lab-swap" aria-label="Swap teams" title="Swap teams">⇄</button>
         <label class="field">Team two<select id="lab-b">${opt(labState.b)}</select></label>
         <div class="field" style="font-size:13px;color:var(--ink-2)">Format<div class="seg" role="group" aria-label="Format">${[1, 3, 5].map((n) => `<button type="button" data-bo="${n}" aria-pressed="${n === labState.bo}">Bo${n}</button>`).join("")}</div></div>
+        <button type="button" class="btn" id="lab-copy">Copy link</button>
       </div>
     </section>
     <div id="lab-out"><p class="loading">Simulating…</p></div>`;
-  const rerun = () => runLab();
+  const rerun = () => {
+    history.replaceState(null, "", `#/lab/${labState.a}-${labState.b}-${labState.bo}`);
+    runLab();
+  };
   document.getElementById("lab-a").addEventListener("change", (e) => { labState.a = +e.target.value; rerun(); });
   document.getElementById("lab-b").addEventListener("change", (e) => { labState.b = +e.target.value; rerun(); });
+  document.getElementById("lab-swap").addEventListener("click", () => {
+    [labState.a, labState.b] = [labState.b, labState.a];
+    document.getElementById("lab-a").value = labState.a;
+    document.getElementById("lab-b").value = labState.b;
+    rerun();
+  });
+  document.getElementById("lab-copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(location.href); toast("Link copied"); } catch { toast("Copy the address bar to share this matchup"); }
+  });
   document.querySelectorAll("[data-bo]").forEach((b) => b.addEventListener("click", () => {
     labState.bo = +b.dataset.bo;
     document.querySelectorAll("[data-bo]").forEach((x) => x.setAttribute("aria-pressed", String(+x.dataset.bo === labState.bo)));
     rerun();
   }));
-  runLab();
+  rerun();
 }
 
 async function runLab() {
@@ -591,9 +734,48 @@ async function runLab() {
   if (!DATA.matchup) DATA.matchup = await get("matchup");
   const sim = vetoSim(DATA.matchup, labState.a, labState.b, labState.bo, 4000);
   const u = { t1: labState.a, t2: labState.b, p1: sim.p_series, best_of: labState.bo, scores: sim.scores, maps: sim.maps, top_vetoes: sim.top_vetoes };
+  const next = nextMatches().find((x) => (x.t1 === u.t1 && x.t2 === u.t2) || (x.t1 === u.t2 && x.t2 === u.t1));
   out.innerHTML = `<section class="hero" style="border-bottom:0">${duel(u)}
-    <p class="note">Chance to win a best-of-${labState.bo}, including the veto. Neutral-venue, current rosters.</p></section>${matchBody(u)}`;
+    ${storyline(u)}
+    <p class="note">Chance to win a best-of-${labState.bo}, including the veto. Neutral venue, current rosters.${next ? ` These teams are scheduled to meet: <a href="#/match/${next.match_id}">see the full forecast</a>.` : ""}</p></section>${matchBody(u)}`;
   drawMatchCharts(u);
+}
+
+// ------------------------------------------------------------------ quick search
+// Press "/" (or the search button) to jump to a team or an upcoming series.
+function setupSearch() {
+  const btn = document.querySelector(".search-btn"), dlg = document.getElementById("search");
+  if (!btn || !dlg) return;
+  const input = dlg.querySelector("input"), list = dlg.querySelector(".search-results");
+  let items = [], sel = 0;
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const render = () => {
+    const q = norm(input.value.trim());
+    const teams = DATA.teams.filter((t) => !q || norm(t.name).includes(q) || norm(t.tag) === q || norm(t.tag).startsWith(q))
+      .sort((x, y) => x.rank - y.rank).slice(0, q ? 8 : 6)
+      .map((t) => ({ href: `#/team/${t.id}`, html: `${logo(t, "sm")}<span><b>${esc(t.name)}</b> <span class="small">${esc(t.region)}, #${t.rank}</span></span>` }));
+    const games = nextMatches().filter((u) => q && (norm(T(u.t1).name).includes(q) || norm(T(u.t2).name).includes(q) || norm(T(u.t1).tag) === q || norm(T(u.t2).tag) === q)).slice(0, 5)
+      .map((u) => ({ href: `#/match/${u.match_id}`, html: `<span class="small">${fmtDate(u.date)}</span><span><b>${esc(T(u.t1).name)}</b> ${pct(u.p1)} vs ${pct(1 - u.p1)} <b>${esc(T(u.t2).name)}</b></span>` }));
+    items = [...games, ...teams];
+    sel = 0;
+    list.innerHTML = items.length ? `${games.length ? `<li class="search-h">Upcoming series</li>` : ""}${games.map((it, i) => `<li><a href="${it.href}" data-i="${i}">${it.html}</a></li>`).join("")}
+      <li class="search-h">${q ? "Teams" : "Top teams"}</li>${teams.map((it, i) => `<li><a href="${it.href}" data-i="${i + games.length}">${it.html}</a></li>`).join("")}`
+      : `<li class="search-h">No team matches “${esc(input.value)}”.</li>`;
+    mark();
+  };
+  const mark = () => list.querySelectorAll("a").forEach((a) => a.classList.toggle("sel", +a.dataset.i === sel));
+  const open = () => { input.value = ""; render(); dlg.showModal(); input.focus(); };
+  btn.addEventListener("click", open);
+  input.addEventListener("input", render);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + items.length) % Math.max(1, items.length); mark(); }
+    if (e.key === "Enter" && items[sel]) { location.hash = items[sel].href; dlg.close(); }
+  });
+  list.addEventListener("click", (e) => { if (e.target.closest("a")) dlg.close(); });
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && !dlg.open && !e.target.closest("input, select, textarea")) { e.preventDefault(); open(); }
+  });
 }
 
 // ------------------------------------------------------------------ views: model

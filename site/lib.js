@@ -90,3 +90,15 @@ export function lineChart(el, series, opts = {}) {
     .on("mouseleave", () => { cross.style("display", "none"); dots.style("display", "none"); tip(null); });
 }
 
+
+// Plain-language strength of a forecast, from the favourite's side.
+export function confidence(p1) {
+  const f = Math.max(p1, 1 - p1);
+  if (f < 0.55) return { label: "Toss-up", cls: "c0" };
+  if (f < 0.65) return { label: "Slight edge", cls: "c1" };
+  if (f < 0.8) return { label: "Favoured", cls: "c2" };
+  return { label: "Strong favourite", cls: "c3" };
+}
+// Fair decimal odds (no bookmaker margin), for comparing with a sportsbook price.
+export const fairOdds = (p) => (p > 0 ? (1 / p).toFixed(2) : "–");
+export const joinList = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
