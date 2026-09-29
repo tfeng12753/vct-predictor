@@ -140,8 +140,12 @@ class MapElo:
     """
 
     def __init__(self, k=24.0, k_map=14.0, map_decay=0.985, init=1500.0, new_team=1440.0,
-                 season_carry=0.8, roster_regress=0.35, k_region=10.0):
+                 season_carry=0.8, roster_regress=0.35, k_region=10.0, k_new=0.0, n_scale=15.0):
         self.k, self.k_map, self.map_decay, self.k_region = k, k_map, map_decay, k_region
+        # Glicko-style uncertainty: a team's K is boosted by (1 + k_new * exp(-n / n_scale)), where n is the
+        # number of maps behind its current rating. New teams and rebuilt rosters converge faster. 0 disables.
+        self.k_new, self.n_scale = k_new, n_scale
+        self.n: dict[int, float] = defaultdict(float)
         # Region offsets: regions mostly play themselves, so without an explicit term a
         # region's average level is only pinned down by the odd international. Offsets
         # are learned from cross-region maps only and cancel within a region.
@@ -178,6 +182,10 @@ class MapElo:
         if frac_new > 0 and t in self.r:
             keep = 1 - self.roster_regress * frac_new
             self.r[t] = self.init + keep * (self.r[t] - self.init)
+            self.n[t] *= 1 - frac_new
+
+    def k_of(self, t):
+        return self.k * (1 + self.k_new * math.exp(-self.n[t] / self.n_scale)) if self.k_new else self.k
 
     def region_diff(self, a, b):
         ra, rb = self.region_of.get(a), self.region_of.get(b)
@@ -202,9 +210,10 @@ class MapElo:
         mov = math.log1p(rd) / math.log1p(6)
         winner_d = d if s == 1 else -d
         mov *= 2.2 / (max(winner_d, 0) * 0.001 + 2.2)
-        delta = self.k * mov * (s - e)
         ra, rb = self.get(a), self.get(b)
-        self.r[a], self.r[b] = ra + delta, rb - delta
+        self.r[a], self.r[b] = ra + self.k_of(a) * mov * (s - e), rb - self.k_of(b) * mov * (s - e)
+        self.n[a] += 1
+        self.n[b] += 1
         for t, sign in ((a, 1), (b, -1)):
             self.o[(t, mp)] = self.o[(t, mp)] * self.map_decay + sign * self.k_map * (s - e)
         ra, rb = self.region_of.get(a), self.region_of.get(b)
@@ -226,8 +235,9 @@ class PlayerElo:
     teammates. Transfers carry a player's rating to their new team automatically.
     """
 
-    def __init__(self, k=20.0, k_ind=18.0, init=1500.0, rookie=1450.0, season_carry=0.85):
+    def __init__(self, k=20.0, k_ind=18.0, init=1500.0, rookie=1450.0, season_carry=0.85, k_new=0.0, n_scale=15.0):
         self.k, self.k_ind, self.init, self.rookie, self.carry = k, k_ind, init, rookie, season_carry
+        self.k_new, self.n_scale = k_new, n_scale  # rookie K boost, as in MapElo; 0 disables
         self.r: dict[int, float] = {}
         self.n: dict[int, int] = defaultdict(int)
         self.year = None
@@ -264,7 +274,8 @@ class PlayerElo:
                 ind = 0.0
                 if perf and lobby is not None and perf.get(p) is not None:
                     ind = self.k_ind * (perf[p] - lobby)
-                self.r[p] = self.get(p) + sign * delta + ind
+                boost = 1 + self.k_new * math.exp(-self.n[p] / self.n_scale) if self.k_new else 1.0
+                self.r[p] = self.get(p) + sign * delta * boost + ind
                 self.n[p] += 1
 
 

@@ -1,0 +1,71 @@
+# Backtest model changes on the real database before they reach main.
+# Runs on pushes to any other branch that touch the pipeline. Read-only: it restores the scraped
+# database from the cache the daily update saves, runs the tests and the experiments, and posts
+# the results to the run summary. It never commits, never re-crawls vlr.gg and never deploys.
+name: Evaluate model changes
+
+on:
+  push:
+    branches-ignore: [main]
+    paths: ["pipeline/**", "tests/**", ".github/workflows/evaluate.yml"]
+  workflow_dispatch:
+    inputs:
+      experiments:
+        description: "Experiments to run (space-separated keys from pipeline/experiments.py; empty = the newest)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evaluate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -r requirements.txt
+
+      - name: Unit tests
+        run: .venv/bin/python -m pytest -q tests
+
+      # Branches can read caches saved on the default branch, so this picks up the latest daily database.
+      - name: Restore database
+        id: db
+        uses: actions/cache/restore@v4
+        with:
+          path: data/vct.db
+          key: vct-db-eval-${{ github.run_id }}
+          restore-keys: vct-db-
+
+      - name: Experiments
+        if: hashFiles('data/vct.db') != ''
+        env:
+          EXPERIMENTS: ${{ github.event.inputs.experiments || 'uncertainty stack_recency' }}
+        run: |
+          .venv/bin/python -m pipeline.experiments $EXPERIMENTS
+          .venv/bin/python -m pipeline.report site/data/experiments.json $EXPERIMENTS >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: No database
+        if: hashFiles('data/vct.db') == ''
+        run: echo "No cached database yet; run the daily 'Update forecasts' workflow on main once first." >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('data/vct.db') != ''
+        with:
+          name: experiments
+          path: site/data/experiments.json

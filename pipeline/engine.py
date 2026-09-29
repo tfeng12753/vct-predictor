@@ -129,6 +129,8 @@ PARAMS: dict = {
     # holdout, but n~80 per window leaves the intervals across zero, so it stays off for now.
     "series": {"sigma_regional": 0.0, "sigma_intl": 0.0},
     "rm": {"C": 0.05, "tau": 0.4, "halflife_days": 180, "map_scale": 0.35},
+    # Recency weighting of the stacking regression's training maps (half-life in days). None = equal weights.
+    "stack": {"halflife_days": None},
 }
 
 
@@ -298,8 +300,9 @@ def run(data: Data, verbose=True, params=None, components_only=False):
 
     # ---- stacked meta model, walk-forward monthly
     cand_pred = {}  # (match_id, map) -> {pick: p}
-    maps_df["p_meta"] = walk_forward(maps_df, META_FEATURES, cand_df=cand_df, cand_out=cand_pred)
-    st.meta = fit_meta(maps_df)
+    hl = p["stack"]["halflife_days"]
+    maps_df["p_meta"] = walk_forward(maps_df, META_FEATURES, cand_df=cand_df, cand_out=cand_pred, halflife=hl)
+    st.meta = fit_meta(maps_df, halflife=hl)
     st.extras["meta_coef"] = dict(zip(META_FEATURES, st.meta.coef_.ravel().tolist()))
 
     # ---- veto: habits replay, fit weights on pre-eval data, then backtest series pre-veto
@@ -379,13 +382,13 @@ def run(data: Data, verbose=True, params=None, components_only=False):
     return st, maps_df, series_df, cand_df
 
 
-def walk_forward(maps_df, features, learner="logistic", cand_df=None, cand_out=None, start=None):
+def walk_forward(maps_df, features, learner="logistic", cand_df=None, cand_out=None, start=None, halflife=None):
     """Monthly walk-forward: each month is predicted by a stack fitted on all earlier maps."""
     out = pd.Series(np.nan, index=maps_df.index)
     blocks = pd.date_range(start or EVAL_START, maps_df["date"].max() + pd.offsets.MonthBegin(1), freq="MS")
     for i, start in enumerate(blocks[:-1]):
         end = blocks[i + 1]
-        clf = fit_meta(maps_df[maps_df["date"] < start], features, learner)
+        clf = fit_meta(maps_df[maps_df["date"] < start], features, learner, halflife=halflife, asof=start)
         sel = (maps_df["date"] >= start) & (maps_df["date"] < end)
         if sel.any():
             out[sel] = clf.predict_proba(maps_df.loc[sel, features].to_numpy())[:, 1]
@@ -411,8 +414,11 @@ class SymmetricGBM:
         return np.c_[1 - p, p]
 
 
-def fit_meta(df: pd.DataFrame, features=None, learner="logistic"):
-    """Symmetric stack: rows are mirrored so team order carries no signal."""
+def fit_meta(df: pd.DataFrame, features=None, learner="logistic", halflife=None, asof=None):
+    """Symmetric stack: rows are mirrored so team order carries no signal.
+
+    halflife (days): weight training maps by recency relative to `asof`, so the blend can follow
+    shifts in which signals matter (patches, formats). None weights every map equally."""
     features = features or META_FEATURES
     X = df[features].to_numpy()
     y = df["win1"].to_numpy()
@@ -420,8 +426,14 @@ def fit_meta(df: pd.DataFrame, features=None, learner="logistic"):
     ys = np.concatenate([y, 1 - y])
     if learner == "gbm":
         return SymmetricGBM().fit(Xs, ys)
+    w = None
+    if halflife:
+        ref = pd.Timestamp(asof) if asof is not None else df["date"].max()
+        age = (ref - df["date"]).dt.total_seconds().to_numpy() / 86400
+        w = 0.5 ** (np.clip(age, 0, None) / halflife)
+        w = np.concatenate([w, w]) / w.mean()
     clf = LogisticRegression(C=1.0, fit_intercept=False, max_iter=1000)
-    clf.fit(Xs, ys)
+    clf.fit(Xs, ys, sample_weight=w)
     return clf
 
 
