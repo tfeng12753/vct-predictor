@@ -21,6 +21,15 @@ node serve.mjs                          # http://localhost:8765
 
 **Live site:** https://tfeng12753.github.io/vct-predictor/
 
+### Using the site
+
+- **Forecasts**: every scheduled series with a plain-language verdict (toss-up, slight edge, favoured, strong
+  favourite) and a running track record of how recent forecasts did.
+- **Match pages**: a short written summary (who's favoured and how strongly, fair odds, the likeliest score, map edges,
+  what drives the forecast, whether the component models agree), then maps, the likely veto, and side-by-side stats.
+- **Matchup lab**: any two teams in any format. The URL (`#/lab/<team>-<team>-<bo>`) is shareable; ⇄ swaps sides.
+- **Search**: press <kbd>/</kbd> anywhere to jump to a team or an upcoming series.
+
 ## Automatic updates
 
 A GitHub Action ([`.github/workflows/update.yml`](.github/workflows/update.yml)) runs daily at 09:17 UTC: it
@@ -75,10 +84,15 @@ backtest numbers on the site are honest out-of-sample results.
 | **Veto model** | Conditional-logit ban/pick choices driven by modelled map edge and each team's decayed ban/pick habits, fitted on real vetoes; Monte Carlo over vetoes gives pre-veto series odds |
 | **Candidate signals** | Pistol strength, momentum, rest, workload, roster chemistry, experience and an economy-adjusted round model are computed online and tested by `pipeline/ablation.py`. None beat chance on validation, so none are in the stack; the site shows the results |
 | **More candidates** | Agent/map signals (map comfort, agent-pool depth, comp meta-alignment, map-specific form), host-region advantage, and favourite-reliability interactions (new patch, new act, internationals, elimination games). None beat noise |
-| **Experiments** | `pipeline/experiments.py`: series map-correlation term, temperature scaling, tier-2 (Challengers) priors for newcomers. Logged on the site with validation and holdout intervals |
+| **Experiments** | `pipeline/experiments.py`: series map-correlation term, temperature scaling, tier-2 (Challengers) priors for newcomers, Glicko-style K for new teams/players (`uncertainty`), recency-weighted stacking (`stack_recency`). Logged on the site with validation and holdout intervals; off unless adopted |
 | **Tournament sim** | Champions GSL groups + 8-team double elimination, 20,000 runs, honouring completed results |
 
 ## Evaluation protocol
+
+Model changes are tested on real data before they reach `main`: pushing a branch that touches `pipeline/` runs
+[`.github/workflows/evaluate.yml`](.github/workflows/evaluate.yml), which restores the cached database, runs the tests
+and the experiments, and writes a validation/holdout table to the run summary. It never commits, crawls or deploys.
+Run other experiments from the Actions tab ("Evaluate model changes" → Run workflow, with experiment keys).
 
 - Signals and settings are chosen on the validation window (2024-01 to 2025-06). A signal changes status only if its
   paired-bootstrap 95% interval excludes zero; greedy selection on point estimates overfit in testing.

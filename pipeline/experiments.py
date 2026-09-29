@@ -3,6 +3,7 @@ decide on the validation window, report the holdout, paired bootstrap intervals 
 
     python -m pipeline.experiments            # all experiments
     python -m pipeline.experiments tier2      # just the tier-2 prior (needs the Challengers crawl)
+    python -m pipeline.experiments uncertainty stack_recency   # several by name
 
 Writes site/data/experiments.json, which the "How it works" page renders as an experiments log.
 """
@@ -105,22 +106,52 @@ def exp_tier2(data, base_s):
             "rows": rows, "unit": "series log loss", "t2_maps": int(len(data.t2_maps))}
 
 
+def exp_uncertainty(data, base_s):
+    """Glicko-style K boost for teams and players with little history behind their rating."""
+    rows = []
+    for label, kt, kp in (("teams ×1.0", 1.0, 0.0), ("teams ×2.0", 2.0, 0.0), ("players ×1.0", 0.0, 1.0),
+                          ("teams ×1.0, players ×1.0", 1.0, 1.0)):
+        params = {**PARAMS, "melo": {**PARAMS["melo"], "k_new": kt}, "pelo": {**PARAMS["pelo"], "k_new": kp}}
+        _, _, s, _ = run(data, verbose=False, params=params)
+        res = compare(base_s, s)
+        rows.append({"setting": f"K boost for new ratings: {label}", **res, "decision": decide(res)})
+    return {"key": "uncertainty", "title": "Let new teams and players find their level faster",
+            "hypothesis": "A flat K makes newly promoted teams, new rosters and rookies take months to reach their real level; "
+                          "a K that starts high and settles as maps accumulate (as in Glicko) should fix that.",
+            "rows": rows, "unit": "series log loss"}
+
+
+def exp_stack_recency(data, base_s):
+    """Recency-weighted stacking: recent maps count more when the blend is refit each month."""
+    rows = []
+    for hl in (180, 365, 730):
+        _, _, s, _ = run(data, verbose=False, params={**PARAMS, "stack": {"halflife_days": hl}})
+        res = compare(base_s, s)
+        rows.append({"setting": f"half-life {hl} days", **res, "decision": decide(res)})
+    return {"key": "stack_recency", "title": "Weight recent maps more when blending the signals",
+            "hypothesis": "Which signals matter drifts with patches and formats, so a stack fitted on all history "
+                          "lags behind; weighting recent maps more should track the drift.",
+            "rows": rows, "unit": "series log loss"}
+
+
 def main():
-    only = sys.argv[1] if len(sys.argv) > 1 else None
+    only = set(sys.argv[1:])
     data = load()
     _, _, base_s, _ = run(data, verbose=False)
     prev = json.loads(OUT.read_text()) if OUT.exists() else {"experiments": []}
     done = {e["key"]: e for e in prev.get("experiments", [])}
     jobs = {"series_correlation": lambda: exp_series_correlation(data, base_s),
             "temperature": lambda: exp_temperature(base_s),
-            "tier2": lambda: exp_tier2(data, base_s)}
+            "tier2": lambda: exp_tier2(data, base_s),
+            "uncertainty": lambda: exp_uncertainty(data, base_s),
+            "stack_recency": lambda: exp_stack_recency(data, base_s)}
     for key, fn in jobs.items():
-        if only and key != only:
+        if only and key not in only:
             continue
         print(f"running {key}", flush=True)
         done[key] = fn()
         print(json.dumps(done[key].get("rows", done[key].get("note")), indent=1), flush=True)
-    order = ["series_correlation", "temperature", "tier2"]
+    order = ["series_correlation", "temperature", "tier2", "uncertainty", "stack_recency"]
     OUT.write_text(json.dumps({"experiments": [done[k] for k in order if k in done]}, indent=1))
 
 

@@ -26,6 +26,9 @@
         <a href="#/lab" data-nav="lab">Matchup lab</a>
         <a href="#/model" data-nav="model">How it works</a>
       </nav>
+      <button class="theme-toggle search-btn" type="button" aria-label="Search teams and matches (press /)" title="Search teams and matches ( / )">
+        <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.75" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
       <button class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M10 2a8 8 0 1 0 0 16V2z" fill="currentColor"/><circle cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
@@ -39,6 +42,11 @@
     <p class="stamp" id="stamp"></p>
   </footer>
   <div class="tip" role="tooltip" hidden></div>
+  <dialog id="search" class="search" aria-label="Search">
+    <input type="search" placeholder="Team name or tag, e.g. PRX" aria-label="Search teams and upcoming series" autocomplete="off">
+    <ul class="search-results"></ul>
+    <p class="small">↑ ↓ to move, Enter to open, Esc to close</p>
+  </dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>
